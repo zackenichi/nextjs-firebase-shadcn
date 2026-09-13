@@ -1,36 +1,193 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Next.js Firebase App Template
 
-## Getting Started
+A reusable Next.js 16 starter with Firebase, Tailwind CSS, and shadcn/ui.
 
-First, run the development server:
+The template includes email/password and Google authentication, persistent server sessions, protected dashboard routes, root-admin provisioning, logout, and account deletion.
+
+## 1. Install the template
+
+```bash
+npm install
+cp env.example .env.local
+```
+
+Keep `.env.local` open while completing the Firebase steps below.
+
+## 2. Create the Firebase project and Web app
+
+1. Open the [Firebase Console](https://console.firebase.google.com/).
+2. Create or select a project.
+3. From **Project overview**, click the Web icon.
+4. Name and register the Web app. Firebase Hosting is optional.
+5. Copy the app configuration into these `.env.local` fields:
+
+   ```env
+   NEXT_PUBLIC_FIREBASE_API_KEY=""
+   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=""
+   NEXT_PUBLIC_FIREBASE_PROJECT_ID=""
+   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=""
+   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=""
+   NEXT_PUBLIC_FIREBASE_APP_ID=""
+   ```
+
+You can find these values again under **Project settings → General → Your apps**.
+
+## 3. Create the service-account key
+
+Stay in **Project settings**, then:
+
+1. Open **Service accounts → Firebase Admin SDK**.
+2. Confirm that the project matches the Web app project.
+3. Click **Generate new private key**.
+4. Map the downloaded JSON values into `.env.local`:
+
+   | JSON field | Environment variable |
+   | --- | --- |
+   | `project_id` | `FIREBASE_PROJECT_ID` |
+   | `client_email` | `FIREBASE_CLIENT_EMAIL` |
+   | `private_key` | `FIREBASE_PRIVATE_KEY` |
+
+   ```env
+   FIREBASE_PROJECT_ID="your-project-id"
+   FIREBASE_CLIENT_EMAIL="firebase-adminsdk-abcde@your-project-id.iam.gserviceaccount.com"
+   FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+   ```
+
+`NEXT_PUBLIC_FIREBASE_PROJECT_ID` and `FIREBASE_PROJECT_ID` must match. Keep the private key's `\n` characters when it is stored on one line.
+
+Never commit the downloaded JSON or `.env.local`, expose Admin values through `NEXT_PUBLIC_` variables, or place credentials under `public/`. Store production credentials in your deployment platform's encrypted environment settings.
+
+## 4. Set up Firebase Authentication
+
+Open **Build → Authentication**:
+
+1. Click **Get started**.
+2. Under **Sign-in method**, enable **Email/Password**.
+3. Enable **Google** and choose a support email.
+4. Under **Settings → Authorized domains**, add:
+   - `localhost`
+   - Your staging hostname
+   - Your production hostname
+
+Enter hostnames without `https://` or a path.
+
+No separate Google Client ID environment variable is needed. Firebase manages it for the planned `GoogleAuthProvider` and `signInWithPopup` flow.
+
+Set the initial root administrator in `.env.local`:
+
+```env
+ROOT_EMAIL="owner@example.com"
+```
+
+`ROOT_EMAIL` is server-only. When authentication is implemented, the server will compare it with the verified Firebase email while creating a user's Firestore profile for the first time. A match receives the `admin` role; every other account receives the `user` role. Role values sent by the browser will never be trusted. Use an email/password or Google account whose verified email exactly matches this value, ignoring capitalization and surrounding spaces.
+
+## 5. Create Cloud Firestore
+
+Open **Build → Firestore Database**:
+
+1. Click **Create database**.
+2. Use the default database ID and Standard edition.
+3. Select the region closest to the application and its users.
+4. Choose **Production mode**.
+5. Create the database.
+6. Under **Rules**, confirm that access is denied by default:
+
+   ```text
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /{document=**} {
+         allow read, write: if false;
+       }
+     }
+   }
+   ```
+
+Add collection-specific rules as the data model is built. The Admin SDK bypasses Firestore Security Rules, so server operations must perform their own authorization checks.
+
+## 6. Customize the app
+
+Set the application values in `.env.local`:
+
+```env
+APP_NAME="AppName"
+APP_LOGO_URL="/images/logo.png"
+APP_EYEBROW="Your workspace, simplified"
+APP_TITLE="Everything you need, all in one place."
+APP_DESCRIPTION="A clear, focused home for your team to move work forward and stay in sync."
+```
+
+Files under `public` use root-relative paths. For example, `public/images/logo.png` is `/images/logo.png`. The UI uses its default icon when the configured image is missing.
+
+## 7. Run the app
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Other commands:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run lint
+npm run build
+npm run start
+```
 
-## Learn More
+## Authentication behavior
 
-To learn more about Next.js, take a look at the following resources:
+Email/password and Google login both produce a Firebase ID token. The server exchanges that token for a persistent, secure session cookie and redirects the user to `/dashboard`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The cookie name and lifetime are application security policy defined in the authentication code. The cookie uses `httpOnly`, `secure` in production, `sameSite`, and a `maxAge` so closing the browser does not end the session.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Returning users will be handled in two stages:
 
-## Deploy on Vercel
+1. If the server cookie is valid, the server redirects directly to `/dashboard` before rendering the login page.
+2. If the server cookie expired but Firebase still has a persistent browser session, the login screen briefly checks Firebase, obtains a fresh ID token, recreates the server cookie, and redirects automatically.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Firebase session cookies have a maximum lifetime of two weeks. Firebase browser persistence allows the app to restore the server session gracefully after that cookie expires. Explicit logout clears both the Firebase browser session and the server cookie.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`src/proxy.ts` performs quick cookie-based redirects for protected routes. It is not the security boundary: protected layouts and endpoints verify the cookie with Firebase Admin before accessing protected data. Invalid sessions return to the login page without creating a redirect loop.
+
+Administrators can use **Dashboard → User management** to search Firebase accounts, assign admin or user roles, suspend or reactivate access, and permanently delete accounts. Suspended users cannot sign in and see a specific suspension message. The current administrator and configured `ROOT_EMAIL` account are protected from these operations.
+
+## Optional: local Firebase emulators
+
+Set these values in `.env.local`:
+
+```env
+NEXT_PUBLIC_USE_FIREBASE_EMULATOR="true"
+FIREBASE_AUTH_EMULATOR_HOST="127.0.0.1:9099"
+```
+
+Then install and configure the Firebase CLI:
+
+```bash
+npm install --global firebase-tools
+firebase login
+firebase init emulators
+firebase emulators:start
+```
+
+Select the Authentication and Firestore emulators. Never set `FIREBASE_AUTH_EMULATOR_HOST` in production.
+
+## Deployment checklist
+
+- Add all `.env.local` values to the deployment environment.
+- Keep Firebase Admin credentials server-only.
+- Set `ROOT_EMAIL` to the verified account that should receive the initial admin role.
+- Add the deployed hostname to Firebase authorized domains.
+- Make sure emulator variables are disabled or absent.
+- Run `npm run lint` and `npm run build`.
+- Test email/password login, Google login, logout, and protected routes.
+
+## References
+
+- [Firebase Web setup](https://firebase.google.com/docs/web/setup)
+- [Firebase Admin setup](https://firebase.google.com/docs/admin/setup)
+- [Firebase Authentication](https://firebase.google.com/docs/auth/web/start)
+- [Google authentication](https://firebase.google.com/docs/auth/web/google-signin)
+- [Firebase session cookies](https://firebase.google.com/docs/auth/admin/manage-cookies)
+- [Cloud Firestore](https://firebase.google.com/docs/firestore/quickstart)
+- [Next.js Proxy](https://nextjs.org/docs/app/getting-started/proxy)
