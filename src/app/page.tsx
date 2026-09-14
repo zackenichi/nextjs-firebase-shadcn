@@ -1,9 +1,14 @@
+import type { Metadata } from 'next';
 import { AppMark } from '@/components/app-mark';
 import { LoginForm } from '@/components/auth/login-form';
 import { ProductPreview } from '@/components/auth/product-preview';
 import { appConfig } from '@/config/app';
 import { getSessionUser } from '@/lib/firebase/session';
 import { redirect } from 'next/navigation';
+
+export const metadata: Metadata = {
+  title: { absolute: `Sign in | ${appConfig.name}` },
+};
 
 export default async function Home() {
   if (await getSessionUser(true)) redirect('/dashboard');

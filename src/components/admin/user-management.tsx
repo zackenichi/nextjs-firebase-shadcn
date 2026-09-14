@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { MoreHorizontal, Search, Shield, Trash2, UserCheck, UserX } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { useGlobalProgress } from '@/components/global-progress';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogMedia, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -31,11 +32,13 @@ function UserActions({
   disabled,
   onUpdate,
   onDelete,
+  appName,
 }: {
   user: ManagedUser;
   disabled: boolean;
   onUpdate: (body: { role?: 'admin' | 'user'; disabled?: boolean }) => Promise<boolean>;
   onDelete: () => Promise<boolean>;
+  appName: string;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -69,7 +72,7 @@ function UserActions({
           <AlertDialogHeader>
             <AlertDialogMedia className="bg-destructive/10 text-destructive"><Trash2 /></AlertDialogMedia>
             <AlertDialogTitle>Delete {user.name}?</AlertDialogTitle>
-            <AlertDialogDescription>This permanently deletes the Firebase account and its user profile. This action cannot be undone.</AlertDialogDescription>
+            <AlertDialogDescription>This permanently deletes the {appName} account and its user profile. This action cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={disabled}>Cancel</AlertDialogCancel>
@@ -83,7 +86,7 @@ function UserActions({
   );
 }
 
-export function UserManagement({ initialUsers, initialNextPageToken }: { initialUsers: ManagedUser[]; initialNextPageToken: string | null }) {
+export function UserManagement({ initialUsers, initialNextPageToken, appName }: { initialUsers: ManagedUser[]; initialNextPageToken: string | null; appName: string }) {
   const [users, setUsers] = useState(initialUsers);
   const [query, setQuery] = useState('');
   const [pendingUid, setPendingUid] = useState<string | null>(null);
@@ -108,7 +111,10 @@ export function UserManagement({ initialUsers, initialNextPageToken }: { initial
       if (pageToken) url.searchParams.set('pageToken', pageToken);
       const response = await fetch(url);
       const result = await response.json() as { users?: ManagedUser[]; nextPageToken?: string | null; error?: string };
-      if (!response.ok || !result.users) { setError(result.error || 'Unable to load users.'); return; }
+      if (!response.ok || !result.users) {
+        const message = result.error || 'Unable to load users.';
+        setError(message); toast.error(message); return;
+      }
 
       if (direction === 'next') {
         setPreviousPageTokens((tokens) => [...tokens, currentPageToken]);
@@ -122,7 +128,8 @@ export function UserManagement({ initialUsers, initialNextPageToken }: { initial
       setUsers(result.users);
       setQuery('');
     } catch {
-      setError('Unable to reach the server. Please try again.');
+      const message = 'Unable to reach the server. Please try again.';
+      setError(message); toast.error(message);
     } finally {
       setPagePending(false); progress.done();
     }
@@ -133,11 +140,16 @@ export function UserManagement({ initialUsers, initialNextPageToken }: { initial
     try {
       const response = await fetch(`/api/admin/users/${uid}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const result = await response.json().catch(() => ({})) as { error?: string };
-      if (!response.ok) { setError(result.error || 'Unable to update the user.'); return false; }
+      if (!response.ok) {
+        const message = result.error || 'Unable to update the user.';
+        setError(message); toast.error(message); return false;
+      }
       setUsers((current) => current.map((user) => user.uid === uid ? { ...user, ...body } : user));
+      toast.success('User updated successfully.');
       return true;
     } catch {
-      setError('Unable to reach the server. Please try again.');
+      const message = 'Unable to reach the server. Please try again.';
+      setError(message); toast.error(message);
       return false;
     } finally {
       setPendingUid(null); progress.done();
@@ -149,11 +161,16 @@ export function UserManagement({ initialUsers, initialNextPageToken }: { initial
     try {
       const response = await fetch(`/api/admin/users/${uid}`, { method: 'DELETE' });
       const result = await response.json().catch(() => ({})) as { error?: string };
-      if (!response.ok) { setError(result.error || 'Unable to delete the user.'); return false; }
+      if (!response.ok) {
+        const message = result.error || 'Unable to delete the user.';
+        setError(message); toast.error(message); return false;
+      }
       setUsers((current) => current.filter((user) => user.uid !== uid));
+      toast.success('User deleted successfully.');
       return true;
     } catch {
-      setError('Unable to reach the server. Please try again.');
+      const message = 'Unable to reach the server. Please try again.';
+      setError(message); toast.error(message);
       return false;
     } finally {
       setPendingUid(null); progress.done();
@@ -183,6 +200,7 @@ export function UserManagement({ initialUsers, initialNextPageToken }: { initial
                     <UserActions
                       user={user}
                       disabled={locked}
+                      appName={appName}
                       onUpdate={(body) => updateUser(user.uid, body)}
                       onDelete={() => deleteUser(user.uid)}
                     />

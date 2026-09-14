@@ -4,6 +4,8 @@ import { Avatar, AvatarFallback, AvatarGroup, AvatarGroupCount } from '@/compone
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { getCurrentProfile } from '@/lib/auth/profile';
+import { redirect } from 'next/navigation';
 
 const stats = [
   { label: 'Active users', value: '1,248', change: '+12%', icon: Users },
@@ -11,13 +13,16 @@ const stats = [
   { label: 'Activity', value: '92%', change: '+4%', icon: Activity },
 ];
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const user = await getCurrentProfile();
+  if (!user) redirect('/');
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <Badge variant="secondary">Sample dashboard</Badge>
-          <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">Welcome back, Sample User</h1>
+          <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">Welcome back, {user.name}</h1>
           <p className="mt-1 text-sm text-muted-foreground">Here is a quick look at what is happening today.</p>
         </div>
         <p className="text-sm text-muted-foreground">Updated just now</p>

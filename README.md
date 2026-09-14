@@ -119,6 +119,14 @@ APP_DESCRIPTION="A clear, focused home for your team to move work forward and st
 
 Files under `public` use root-relative paths. For example, `public/images/logo.png` is `/images/logo.png`. The UI uses its default icon when the configured image is missing.
 
+### Replace the favicon
+
+Replace [`src/app/favicon.ico`](src/app/favicon.ico) with your favicon and keep the filename exactly `favicon.ico`. Next.js detects this App Router metadata file automatically and adds it to the document head, so no setting or manual `<link>` tag is required.
+
+The replacement must be a real ICO file, not a PNG renamed with an `.ico` extension. For good browser coverage, export a multi-size ICO containing at least 16×16, 32×32, and 48×48 versions; including larger sizes such as 64×64, 128×128, and 256×256 is also useful.
+
+The file at `public/favicon.ico` is not the active favicon while `src/app/favicon.ico` exists. Use `src/app/favicon.ico` as the single source of truth. After replacing it, restart the development server and hard-refresh the page or clear the browser favicon cache if the previous icon remains visible.
+
 ## 7. Run the app
 
 ```bash

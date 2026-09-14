@@ -12,7 +12,7 @@ export function AppShell({ children, user }: { children: ReactNode; user: { name
         <div className="mt-5 lg:mt-10"><SidebarNav role={user.role} /></div>
         <div className="mt-4 hidden rounded-xl border bg-muted/40 p-4 lg:block">
           <p className="text-sm font-medium">Template mode</p>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">Sample data is shown until Firebase Authentication is connected.</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">Sample data is shown until authentication is connected.</p>
         </div>
       </aside>
       <div className="min-w-0 lg:col-start-2">
