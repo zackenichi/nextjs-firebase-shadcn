@@ -6,6 +6,7 @@ import { FirebaseError } from 'firebase/app';
 import { createUserWithEmailAndPassword, GoogleAuthProvider, onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, type User } from 'firebase/auth';
 import { ArrowRight, LoaderCircle, LockKeyhole } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,7 +22,7 @@ function authMessage(error: unknown) {
     'auth/user-disabled': 'This account has been suspended. Contact an administrator for help.',
     'auth/popup-closed-by-user': 'Google sign-in was cancelled.',
     'auth/popup-blocked': 'Your browser blocked the Google sign-in window.',
-    'auth/unauthorized-domain': 'This domain is not authorized in Firebase.',
+    'auth/unauthorized-domain': 'This domain is not authorized for sign-in.',
     'auth/weak-password': 'Use a password with at least six characters.',
   };
   return messages[error.code] ?? 'Unable to authenticate. Please try again.';
@@ -83,8 +84,10 @@ export function LoginForm({ appName, mobileBrand }: { appName: string; mobileBra
         ? await signInWithEmailAndPassword(firebaseAuth, email, password)
         : await createUserWithEmailAndPassword(firebaseAuth, email, password);
       await createServerSession(result.user);
+      toast.success(mode === 'login' ? 'Signed in successfully.' : 'Account created successfully.');
     } catch (caught) {
-      setError(authMessage(caught)); setPending(false); submitting.current = false;
+      const message = authMessage(caught);
+      setError(message); toast.error(message); setPending(false); submitting.current = false;
     } finally {
       progress.done();
     }
@@ -98,8 +101,10 @@ export function LoginForm({ appName, mobileBrand }: { appName: string; mobileBra
       provider.setCustomParameters({ prompt: 'select_account' });
       const result = await signInWithPopup(firebaseAuth, provider);
       await createServerSession(result.user);
+      toast.success('Signed in with Google.');
     } catch (caught) {
-      setError(authMessage(caught)); setPending(false); submitting.current = false;
+      const message = authMessage(caught);
+      setError(message); toast.error(message); setPending(false); submitting.current = false;
     } finally {
       progress.done();
     }
@@ -113,7 +118,11 @@ export function LoginForm({ appName, mobileBrand }: { appName: string; mobileBra
       await firebaseAuthReady;
       await sendPasswordResetEmail(firebaseAuth, email);
       setMessage('Check your inbox for a password reset link.');
-    } catch (caught) { setError(authMessage(caught)); } finally { progress.done(); }
+      toast.success('Password reset email sent.');
+    } catch (caught) {
+      const message = authMessage(caught);
+      setError(message); toast.error(message);
+    } finally { progress.done(); }
   }
 
   return (
