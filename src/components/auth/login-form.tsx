@@ -19,13 +19,32 @@ function authMessage(error: unknown) {
     'auth/email-already-in-use': 'An account already exists for this email.',
     'auth/invalid-credential': 'The email or password is incorrect.',
     'auth/invalid-email': 'Enter a valid email address.',
+    'auth/missing-email': 'Enter your email address.',
+    'auth/user-not-found': 'No account was found for this email address.',
+    'auth/wrong-password': 'The email or password is incorrect.',
     'auth/user-disabled': 'This account has been suspended. Contact an administrator for help.',
+    'auth/operation-not-allowed': 'This sign-in method is not enabled. Contact an administrator for help.',
+    'auth/network-request-failed': 'Unable to reach Firebase. Check your connection and try again.',
+    'auth/too-many-requests': 'Too many attempts. Wait a moment, then try again.',
+    'auth/invalid-api-key': 'Authentication is not configured correctly. Contact an administrator.',
+    'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'Authentication is not configured correctly. Contact an administrator.',
     'auth/popup-closed-by-user': 'Google sign-in was cancelled.',
-    'auth/popup-blocked': 'Your browser blocked the Google sign-in window.',
-    'auth/unauthorized-domain': 'This domain is not authorized for sign-in.',
+    'auth/popup-blocked': 'Your browser blocked the Google sign-in window. Allow popups and try again.',
+    'auth/cancelled-popup-request': 'Another sign-in window was opened. Please try again.',
+    'auth/unauthorized-domain': 'This domain is not authorized for sign-in. Contact an administrator.',
+    'auth/operation-not-supported-in-this-environment': 'This browser does not support this sign-in method.',
+    'auth/web-storage-unsupported': 'Browser storage is unavailable. Enable it and try again.',
     'auth/weak-password': 'Use a password with at least six characters.',
   };
-  return messages[error.code] ?? 'Unable to authenticate. Please try again.';
+  return messages[error.code] ?? `Unable to authenticate (${error.code}). Please try again.`;
+}
+
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
 export function LoginForm({ appName, mobileBrand }: { appName: string; mobileBrand: ReactNode }) {
@@ -75,14 +94,21 @@ export function LoginForm({ appName, mobileBrand }: { appName: string; mobileBra
 
   async function handleCredentials(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const normalizedEmail = normalizeEmail(email);
+    setEmail(normalizedEmail);
+    if (!isValidEmail(normalizedEmail)) {
+      const message = 'Enter a valid email address, including @ and a domain (for example, you@example.com).';
+      setError(message); setMessage(''); toast.error(message);
+      return;
+    }
     setPending(true); setError(''); setMessage(''); submitting.current = true; progress.start();
     const form = new FormData(event.currentTarget);
     const password = String(form.get('password') ?? '');
     try {
       await firebaseAuthReady;
       const result = mode === 'login'
-        ? await signInWithEmailAndPassword(firebaseAuth, email, password)
-        : await createUserWithEmailAndPassword(firebaseAuth, email, password);
+        ? await signInWithEmailAndPassword(firebaseAuth, normalizedEmail, password)
+        : await createUserWithEmailAndPassword(firebaseAuth, normalizedEmail, password);
       await createServerSession(result.user);
       toast.success(mode === 'login' ? 'Signed in successfully.' : 'Account created successfully.');
     } catch (caught) {
