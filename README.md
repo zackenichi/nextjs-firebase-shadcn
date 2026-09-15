@@ -185,8 +185,11 @@ Select the Authentication and Firestore emulators. Never set `FIREBASE_AUTH_EMUL
 - Add all `.env.local` values to the deployment environment.
 - Keep Firebase Admin credentials server-only.
 - Set `ROOT_EMAIL` to the verified account that should receive the initial admin role.
-- Add the deployed hostname to Firebase authorized domains.
-- Make sure emulator variables are disabled or absent.
+- Under **Firebase Authentication → Settings → Authorized domains**, add every production hostname that serves the login page.
+- Under **Firebase Authentication → Sign-in method**, make sure Google is enabled before deploying Google sign-in.
+- Keep `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` set to `<project-id>.firebaseapp.com` in normal deployments; the app's production hostname belongs in **Authorized domains**, not in this variable.
+- Redeploy Vercel after changing any `NEXT_PUBLIC_*` variable. Next.js embeds these values in the browser bundle at build time.
+- Make sure `NEXT_PUBLIC_USE_FIREBASE_EMULATOR` and `FIREBASE_AUTH_EMULATOR_HOST` are disabled or absent in production.
 - Run `npm run lint` and `npm run build`.
 - Test email/password login, Google login, logout, and protected routes.
 
