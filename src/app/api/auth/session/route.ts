@@ -2,6 +2,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { getInitialRole } from '@/config/auth';
+import { claimPendingAdminInvitation } from '@/lib/auth/invitations';
 import { SESSION_COOKIE_NAME, SESSION_MAX_AGE_SECONDS } from '@/lib/auth/constants';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase/admin';
 
@@ -36,6 +37,10 @@ export async function POST(request: NextRequest) {
         ...(!existing.exists ? { createdAt: FieldValue.serverTimestamp() } : {}),
       }, { merge: true });
     });
+
+    if (decoded.email && decoded.email_verified) {
+      await claimPendingAdminInvitation(decoded.uid, decoded.email);
+    }
 
     const response = NextResponse.json({ ok: true });
     response.cookies.set(SESSION_COOKIE_NAME, sessionCookie, {

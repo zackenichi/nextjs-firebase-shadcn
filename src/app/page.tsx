@@ -10,8 +10,12 @@ export const metadata: Metadata = {
   title: { absolute: `Sign in | ${appConfig.name}` },
 };
 
-export default async function Home() {
-  if (await getSessionUser(true)) redirect('/dashboard');
+export default async function Home({ searchParams }: PageProps<'/'>) {
+  const requestedReturnTo = (await searchParams).returnTo;
+  const returnTo = typeof requestedReturnTo === 'string' && requestedReturnTo.startsWith('/') && !requestedReturnTo.startsWith('//')
+    ? requestedReturnTo
+    : '/dashboard';
+  if (await getSessionUser(true)) redirect(returnTo);
   return (
     <main className="grid min-h-svh bg-background lg:grid-cols-[minmax(0,1.18fr)_minmax(440px,0.82fr)]">
       <section className="relative hidden min-h-svh overflow-hidden border-r border-violet-100 bg-[#f7f5ff] px-10 py-9 lg:flex lg:flex-col xl:px-16 xl:py-12">
@@ -27,7 +31,7 @@ export default async function Home() {
         <p className="relative z-10 text-xs text-slate-500">© {new Date().getFullYear()} {appConfig.name}. All rights reserved.</p>
       </section>
       <section className="flex min-h-svh items-center justify-center px-6 py-10 sm:px-12 lg:px-16 xl:px-24">
-        <LoginForm appName={appConfig.name} mobileBrand={<AppMark />} />
+        <LoginForm appName={appConfig.name} mobileBrand={<AppMark />} returnTo={returnTo} />
       </section>
     </main>
   );

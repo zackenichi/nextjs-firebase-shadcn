@@ -3,7 +3,7 @@
 import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { FirebaseError } from 'firebase/app';
-import { createUserWithEmailAndPassword, GoogleAuthProvider, onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, type User } from 'firebase/auth';
+import { createUserWithEmailAndPassword, GoogleAuthProvider, onAuthStateChanged, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signOut, type User } from 'firebase/auth';
 import { ArrowRight, LoaderCircle, LockKeyhole } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -47,7 +47,7 @@ function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-export function LoginForm({ appName, mobileBrand }: { appName: string; mobileBrand: ReactNode }) {
+export function LoginForm({ appName, mobileBrand, returnTo = '/dashboard' }: { appName: string; mobileBrand: ReactNode; returnTo?: string }) {
   const router = useRouter();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
@@ -68,7 +68,7 @@ export function LoginForm({ appName, mobileBrand }: { appName: string; mobileBra
       const result = await response.json().catch(() => ({})) as { error?: string };
       throw new Error(result.error || 'Unable to create the application session.');
     }
-    router.replace('/dashboard');
+    router.replace(returnTo);
     router.refresh();
   }
 
@@ -90,7 +90,7 @@ export function LoginForm({ appName, mobileBrand }: { appName: string; mobileBra
     return () => { active = false; };
   // Session restoration should only register one Firebase observer on mount.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [returnTo]);
 
   async function handleCredentials(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -109,6 +109,15 @@ export function LoginForm({ appName, mobileBrand }: { appName: string; mobileBra
       const result = mode === 'login'
         ? await signInWithEmailAndPassword(firebaseAuth, normalizedEmail, password)
         : await createUserWithEmailAndPassword(firebaseAuth, normalizedEmail, password);
+      if (!result.user.emailVerified) {
+        await sendEmailVerification(result.user);
+        await signOut(firebaseAuth);
+        setMode('login');
+        setMessage('Check your inbox, verify your email address, then sign in.');
+        toast.success('Verification email sent.');
+        setPending(false); submitting.current = false;
+        return;
+      }
       await createServerSession(result.user);
       toast.success(mode === 'login' ? 'Signed in successfully.' : 'Account created successfully.');
     } catch (caught) {
